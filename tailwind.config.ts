@@ -47,6 +47,9 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        teal: { DEFAULT: "hsl(var(--teal))", deep: "hsl(var(--teal-deep))" },
+        "blue-soft": "hsl(var(--blue-soft))",
+        "apple-red": "hsl(var(--apple-red))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -60,8 +63,13 @@ export default {
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 4px)",
+        sm: "calc(var(--radius) - 8px)",
+      },
+      fontFamily: {
+        display: ['"Playfair Display"', "serif"],
+        script: ['Allura', "cursive"],
+        sans: ['Inter', "system-ui", "sans-serif"],
       },
       keyframes: {
         "accordion-down": {
