@@ -117,6 +117,14 @@ const Recipes = () => {
                   <h4 className="font-semibold mb-1">Steps</h4>
                   <ol className="list-decimal list-inside space-y-1">{r.steps.map((x,j)=><li key={j}>{x}</li>)}</ol>
                 </div>
+                <button
+                  onClick={() => logRecipe(r, i)}
+                  disabled={logging === i}
+                  className="w-full rounded-xl bg-teal text-white font-semibold py-2.5 flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {logging === i ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
+                  {logging === i ? "Adding…" : "Add to today's log"}
+                </button>
               </div>
             )}
           </div>
