@@ -1,7 +1,8 @@
 import { useState } from "react";
 import AppShell from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Search } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Loader2, Search, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface Recipe {
@@ -15,12 +16,32 @@ interface Recipe {
 }
 
 const Recipes = () => {
+  const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [maxCal, setMaxCal] = useState(800);
   const [diet, setDiet] = useState("any");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
+  const [logging, setLogging] = useState<number | null>(null);
+
+  const logRecipe = async (r: Recipe, i: number) => {
+    if (!user) { toast.error("Please sign in"); return; }
+    setLogging(i);
+    const { error } = await supabase.from("meals").insert({
+      user_id: user.id,
+      name: r.name,
+      calories: Math.round(r.calories),
+      protein_g: r.protein_g,
+      carbs_g: r.carbs_g,
+      fat_g: r.fat_g,
+      ingredients: r.ingredients?.join(", "),
+      source: "recipe",
+    });
+    setLogging(null);
+    if (error) toast.error(error.message);
+    else toast.success(`Added ${r.name} to today's log`);
+  };
 
   const search = async () => {
     setLoading(true);
@@ -96,6 +117,14 @@ const Recipes = () => {
                   <h4 className="font-semibold mb-1">Steps</h4>
                   <ol className="list-decimal list-inside space-y-1">{r.steps.map((x,j)=><li key={j}>{x}</li>)}</ol>
                 </div>
+                <button
+                  onClick={() => logRecipe(r, i)}
+                  disabled={logging === i}
+                  className="w-full rounded-xl bg-teal text-white font-semibold py-2.5 flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {logging === i ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
+                  {logging === i ? "Adding…" : "Add to today's log"}
+                </button>
               </div>
             )}
           </div>
