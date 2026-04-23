@@ -1,7 +1,8 @@
 import { useState } from "react";
 import AppShell from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Search } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Loader2, Search, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface Recipe {
