@@ -16,12 +16,32 @@ interface Recipe {
 }
 
 const Recipes = () => {
+  const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [maxCal, setMaxCal] = useState(800);
   const [diet, setDiet] = useState("any");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
+  const [logging, setLogging] = useState<number | null>(null);
+
+  const logRecipe = async (r: Recipe, i: number) => {
+    if (!user) { toast.error("Please sign in"); return; }
+    setLogging(i);
+    const { error } = await supabase.from("meals").insert({
+      user_id: user.id,
+      name: r.name,
+      calories: Math.round(r.calories),
+      protein_g: r.protein_g,
+      carbs_g: r.carbs_g,
+      fat_g: r.fat_g,
+      ingredients: r.ingredients?.join(", "),
+      source: "recipe",
+    });
+    setLogging(null);
+    if (error) toast.error(error.message);
+    else toast.success(`Added ${r.name} to today's log`);
+  };
 
   const search = async () => {
     setLoading(true);
