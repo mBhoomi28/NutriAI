@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import AppShell from "@/components/AppShell";
-import { Camera, Search, Check, Loader2 } from "lucide-react";
+import { Camera, Search, Check, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -26,6 +26,15 @@ interface MealRow {
   logged_at: string;
 }
 
+interface SearchResult {
+  name: string;
+  serving: string;
+  calories: number;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+}
+
 const LogMeal = () => {
   const { user } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -33,10 +42,11 @@ const LogMeal = () => {
   const [detected, setDetected] = useState<Detected | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [search, setSearch] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [meals, setMeals] = useState<MealRow[]>([]);
   const [goal, setGoal] = useState(2200);
+  const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
 
   const loadMeals = async () => {
     if (!user) return;
@@ -69,8 +79,9 @@ const LogMeal = () => {
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
         setDetected(data as Detected);
-      } catch (err: any) {
-        toast.error(err.message || "Failed to recognize food");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to recognize food";
+        toast.error(message);
       } finally {
         setAnalyzing(false);
       }
@@ -107,14 +118,15 @@ const LogMeal = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setSearchResults(data.foods || []);
-    } catch (err: any) {
-      toast.error(err.message || "Search failed");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Search failed";
+      toast.error(message);
     } finally {
       setSearching(false);
     }
   };
 
-  const logSearchItem = async (f: any) => {
+  const logSearchItem = async (f: SearchResult) => {
     if (!user) return;
     const { error } = await supabase.from("meals").insert({
       user_id: user.id,
@@ -126,6 +138,28 @@ const LogMeal = () => {
     });
     if (error) toast.error(error.message);
     else { toast.success(`Logged ${f.name}`); loadMeals(); }
+  };
+
+  const deleteMeal = async (mealId: string) => {
+    if (!user) return;
+    setDeletingMealId(mealId);
+    try {
+      const { error } = await supabase
+        .from("meals")
+        .delete()
+        .eq("id", mealId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      setMeals((current) => current.filter((meal) => meal.id !== mealId));
+      toast.success("Meal deleted");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete meal";
+      toast.error(message);
+    } finally {
+      setDeletingMealId(null);
+    }
   };
 
   const consumed = meals.reduce((s, m) => s + m.calories, 0);
@@ -217,9 +251,20 @@ const LogMeal = () => {
           {meals.length > 0 && (
             <ul className="mt-4 divide-y divide-border text-sm">
               {meals.map((m) => (
-                <li key={m.id} className="py-1.5 flex justify-between">
-                  <span>{m.name}</span>
-                  <span className="text-muted-foreground">{m.calories} cal</span>
+                <li key={m.id} className="py-2 flex items-center gap-3">
+                  <div className="flex-1">
+                    <p>{m.name}</p>
+                    <p className="text-muted-foreground">{m.calories} cal</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void deleteMeal(m.id)}
+                    disabled={deletingMealId === m.id}
+                    aria-label={`Delete ${m.name}`}
+                    className="rounded-lg border border-border bg-white px-2.5 py-2 text-muted-foreground transition hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {deletingMealId === m.id ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                  </button>
                 </li>
               ))}
             </ul>
