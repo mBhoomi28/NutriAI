@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { User, Camera, BookOpen, HelpCircle, LayoutGrid, LogOut } from "lucide-react";
 import appleLogo from "@/assets/apple-logo.png";
 import { supabase } from "@/integrations/supabase/client";
+import ProfileOnboardingPrompt from "@/components/ProfileOnboardingPrompt";
 
 interface Props {
   title: string;
@@ -29,6 +30,8 @@ const AppShell = ({ title, children, showNav = true }: Props) => {
 
   return (
     <div className="min-h-screen flex flex-col mx-auto max-w-md w-full">
+      <ProfileOnboardingPrompt />
+
       {/* Header */}
       <header className="pt-6 pb-2 px-5 flex items-center gap-3 relative">
         <img src={appleLogo} alt="NutriAI logo" width={64} height={64} className="w-14 h-14 drop-shadow-lg" />
