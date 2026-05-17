@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,16 +13,20 @@ const schema = z.object({
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const oauthRedirectTo = `${window.location.origin}/auth`;
+  const requestedRedirect = searchParams.get("redirect");
+  const redirectPath =
+    requestedRedirect?.startsWith("/") && !requestedRedirect.startsWith("//") ? requestedRedirect : "/menu";
+  const authCallbackUrl = `${window.location.origin}/auth?redirect=${encodeURIComponent(redirectPath)}`;
 
   useEffect(() => {
-    if (user) navigate("/menu", { replace: true });
-  }, [user, navigate]);
+    if (user) navigate(redirectPath, { replace: true });
+  }, [user, navigate, redirectPath]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +41,7 @@ const Auth = () => {
         const { error } = await supabase.auth.signUp({
           email: parsed.data.email,
           password: parsed.data.password,
-          options: { emailRedirectTo: `${window.location.origin}/menu` },
+          options: { emailRedirectTo: authCallbackUrl },
         });
         if (error) throw error;
         toast.success("Account created!");
@@ -48,7 +52,7 @@ const Auth = () => {
         });
         if (error) throw error;
       }
-      navigate("/menu");
+      navigate(redirectPath);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Authentication failed";
       toast.error(message);
@@ -109,7 +113,7 @@ const Auth = () => {
               const { error } = await supabase.auth.signInWithOAuth({
                 provider: "google",
                 options: {
-                  redirectTo: oauthRedirectTo,
+                  redirectTo: authCallbackUrl,
                 },
               });
               if (error) toast.error(error.message || "Google sign-in failed");

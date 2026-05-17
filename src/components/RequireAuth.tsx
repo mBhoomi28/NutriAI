@@ -5,7 +5,10 @@ import { useAuth } from "@/hooks/useAuth";
 const RequireAuth = ({ children }: { children: ReactNode }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading…</div>;
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) {
+    const next = `${window.location.pathname}${window.location.search}`;
+    return <Navigate to={`/auth?redirect=${encodeURIComponent(next)}`} replace />;
+  }
   return <>{children}</>;
 };
 

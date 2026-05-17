@@ -52,8 +52,9 @@ const Recipes = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setRecipes(data.recipes || []);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to load recipes");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to load recipes";
+      toast.error(message);
     } finally {
       setLoading(false);
     }

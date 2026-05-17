@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { Camera, Search, Check, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,7 +48,7 @@ const LogMeal = () => {
   const [goal, setGoal] = useState(2200);
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
 
-  const loadMeals = async () => {
+  const loadMeals = useCallback(async () => {
     if (!user) return;
     const today = new Date(); today.setHours(0,0,0,0);
     const { data } = await supabase
@@ -60,8 +60,8 @@ const LogMeal = () => {
     setMeals(data || []);
     const { data: prof } = await supabase.from("profiles").select("daily_calorie_goal").eq("id", user.id).maybeSingle();
     if (prof?.daily_calorie_goal) setGoal(prof.daily_calorie_goal);
-  };
-  useEffect(() => { loadMeals(); }, [user]);
+  }, [user]);
+  useEffect(() => { loadMeals(); }, [loadMeals]);
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];

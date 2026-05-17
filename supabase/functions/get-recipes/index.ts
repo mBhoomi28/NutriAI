@@ -1,88 +1,65 @@
-// Generate recipe suggestions via Lovable AI based on filters
+import { chatJson } from "../_shared/ai.ts";
+import { requireUser } from "../_shared/auth.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type RecipeSearch = {
+  recipes: Array<{
+    name: string;
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+    prep_minutes: number;
+    ingredients: string[];
+    steps: string[];
+    diet_tags: string[];
+  }>;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
   try {
+    await requireUser(req);
     const { query = "", maxCalories = 800, diet = "any" } = await req.json().catch(() => ({}));
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: "You are a nutritionist chef. Suggest healthy recipes." },
-          {
-            role: "user",
-            content: `Suggest 5 ${diet === "any" ? "" : diet} recipes${query ? " matching: " + query : ""} under ${maxCalories} calories per serving.`,
-          },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "list_recipes",
-              parameters: {
-                type: "object",
-                properties: {
-                  recipes: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        name: { type: "string" },
-                        calories: { type: "number" },
-                        protein_g: { type: "number" },
-                        carbs_g: { type: "number" },
-                        fat_g: { type: "number" },
-                        prep_minutes: { type: "number" },
-                        ingredients: { type: "array", items: { type: "string" } },
-                        steps: { type: "array", items: { type: "string" } },
-                        diet_tags: { type: "array", items: { type: "string" } },
-                      },
-                      required: ["name", "calories", "protein_g", "carbs_g", "fat_g", "prep_minutes", "ingredients", "steps", "diet_tags"],
-                      additionalProperties: false,
-                    },
-                  },
-                },
-                required: ["recipes"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "list_recipes" } },
-      }),
+    const model = Deno.env.get("AI_TEXT_MODEL") ?? Deno.env.get("AI_MODEL") ?? "gpt-4o-mini";
+    const result = await chatJson<RecipeSearch>({
+      model,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a nutritionist chef. Return only valid JSON shaped as {\"recipes\":[...]}. Include exactly 5 healthy recipes with calories, macros, prep_minutes, ingredients, steps, and diet_tags.",
+        },
+        {
+          role: "user",
+          content: `Suggest ${diet === "any" ? "" : diet} recipes${query ? ` matching ${query}` : ""} under ${Number(maxCalories) || 800} calories per serving.`,
+        },
+      ],
     });
 
-    if (!response.ok) {
-      if (response.status === 429)
-        return new Response(JSON.stringify({ error: "Rate limit exceeded." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (response.status === 402)
-        return new Response(JSON.stringify({ error: "AI credits required." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const data = await response.json();
-    const tc = data.choices?.[0]?.message?.tool_calls?.[0];
-    const parsed = tc ? JSON.parse(tc.function.arguments) : { recipes: [] };
-    return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return json({ recipes: Array.isArray(result.recipes) ? result.recipes : [] });
   } catch (e) {
+    if (e instanceof Response) return withCors(e);
     console.error("get-recipes error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+const withCors = (response: Response) =>
+  new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: { ...Object.fromEntries(response.headers.entries()), ...corsHeaders },
+  });
